@@ -8,13 +8,13 @@ export function Home() {
 
   return (
     <div className="flex flex-col items-center text-center animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="mb-8 p-4 bg-[#10b981]/10 rounded-full border border-[#10b981]/20">
-        <Radio size={48} className="text-[#10b981] animate-pulse" />
+      <div className="mb-8 p-4 bg-[var(--color-brand)]/10 rounded-full border border-[var(--color-brand)]/20 shadow-[0_0_30px_rgba(29,185,84,0.15)]">
+        <Radio size={48} className="text-[var(--color-brand)] animate-pulse" />
       </div>
       
       <h2 className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-4 text-glow text-white">
         Sync Your Audio. <br className="hidden sm:block" />
-        <span className="text-[#10b981]">Wirelessly.</span>
+        <span className="text-[var(--color-brand)]">Wirelessly.</span>
       </h2>
       
       <p className="text-lg text-white/60 max-w-md mx-auto mb-10">

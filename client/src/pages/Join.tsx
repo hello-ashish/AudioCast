@@ -10,7 +10,7 @@ export function Join() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { socket, isConnected } = useSocket();
-  
+
   const [roomIdInput, setRoomIdInput] = useState(id || '');
   const [joined, setJoined] = useState(false);
   const [error, setError] = useState('');
@@ -18,7 +18,10 @@ export function Join() {
   const [isMuted, setIsMuted] = useState(false);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const [syncDelay, setSyncDelay] = useState(0);
-  
+  const [networkLatency, setNetworkLatency] = useState(0);
+  const [autoDelay, setAutoDelay] = useState(0);
+  const [targetTotalDelay, setTargetTotalDelay] = useState(0);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -41,9 +44,55 @@ export function Join() {
   // Update sync delay dynamically
   useEffect(() => {
     if (delayNodeRef.current && audioContextRef.current) {
-      delayNodeRef.current.delayTime.setTargetAtTime(syncDelay / 1000, audioContextRef.current.currentTime, 0.05);
+      delayNodeRef.current.delayTime.setTargetAtTime(
+        Math.max(0, (autoDelay + syncDelay) / 1000), 
+        audioContextRef.current.currentTime, 
+        0.05
+      );
     }
-  }, [syncDelay]);
+  }, [syncDelay, autoDelay]);
+
+  // Auto-sync engine
+  useEffect(() => {
+    if (!socket || !joined) return;
+
+    let pingInterval: ReturnType<typeof setInterval>;
+    const latencySamples: number[] = [];
+    
+    socket.on('pong-host', ({ clientTime }) => {
+      const rtt = Date.now() - clientTime;
+      const latency = rtt / 2;
+      
+      // Moving average over last 5 samples
+      latencySamples.push(latency);
+      if (latencySamples.length > 5) latencySamples.shift();
+      
+      const avgLatency = latencySamples.reduce((a, b) => a + b, 0) / latencySamples.length;
+      const roundedAvgLatency = Math.round(avgLatency);
+      setNetworkLatency(roundedAvgLatency);
+      
+      // Report latency to host
+      socket.emit('report-latency', { roomId: roomIdInput, latency: roundedAvgLatency });
+      
+      // Calculate how much artificial delay to add to hit targetTotalDelay
+      const calculatedDelay = Math.max(0, targetTotalDelay - avgLatency);
+      setAutoDelay(Math.round(calculatedDelay));
+    });
+
+    socket.on('target-latency', ({ targetLatency }) => {
+      setTargetTotalDelay(targetLatency);
+    });
+
+    pingInterval = setInterval(() => {
+      socket.emit('ping-host', { clientTime: Date.now() });
+    }, 2000);
+
+    return () => {
+      clearInterval(pingInterval);
+      socket.off('pong-host');
+      socket.off('target-latency');
+    };
+  }, [socket, joined, targetTotalDelay, roomIdInput]);
 
   useEffect(() => {
     if (!socket || !joined) return;
@@ -61,7 +110,7 @@ export function Join() {
 
       peerConnection.ontrack = (event) => {
         console.log('Received remote track');
-        
+
         // Force WebRTC jitter buffer to 0ms for the absolute lowest possible latency
         if (event.receiver && 'playoutDelayHint' in event.receiver) {
           try {
@@ -74,7 +123,7 @@ export function Join() {
 
         if (event.streams[0]) {
           const stream = event.streams[0];
-          
+
           try {
             // Web Audio API bypasses the HTML media element buffering for ultra-low latency
             const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -82,14 +131,14 @@ export function Join() {
             audioContextRef.current = ctx;
 
             const source = ctx.createMediaStreamSource(stream);
-            
+
             const delayNode = ctx.createDelay(1.0); // max 1 second delay
             delayNode.delayTime.value = syncDelay / 1000;
             delayNodeRef.current = delayNode;
 
             const gainNode = ctx.createGain();
             gainNodeRef.current = gainNode;
-            
+
             gainNode.gain.value = isMuted ? 0 : volume;
 
             source.connect(delayNode);
@@ -100,7 +149,7 @@ export function Join() {
             if (audioRef.current) {
               audioRef.current.srcObject = stream;
               audioRef.current.muted = true; // Mute it so we don't hear the delayed double-audio
-              
+
               audioRef.current.play().then(() => {
                 if (ctx.state === 'suspended') {
                   setAutoplayBlocked(true);
@@ -131,6 +180,15 @@ export function Join() {
       try {
         await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
         const answer = await peerConnection.createAnswer();
+        
+        // Force high-fidelity stereo audio in WebRTC by modifying the SDP
+        if (answer.sdp) {
+          answer.sdp = answer.sdp.replace(
+            /useinbandfec=1/g,
+            'useinbandfec=1;stereo=1;sprop-stereo=1;maxaveragebitrate=510000'
+          );
+        }
+        
         await peerConnection.setLocalDescription(answer);
         socket.emit('answer', { hostId, answer });
       } catch (err) {
@@ -174,13 +232,23 @@ export function Join() {
     setError('');
     const room = roomIdInput.trim().toUpperCase();
     setRoomIdInput(room);
-    
+
     // Resume AudioContext just in case it's suspended
     if (audioRef.current && audioRef.current.srcObject) {
-       audioRef.current.play().catch(() => {});
+      audioRef.current.play().catch(() => { });
     }
-    
-    socket.emit('join-room', { roomId: room });
+
+    // Attempt to guess device
+    const getDeviceName = () => {
+      const ua = navigator.userAgent;
+      if (/iPad|iPhone|iPod/.test(ua)) return 'iPhone/iPad';
+      if (/Android/.test(ua)) return 'Android';
+      if (/Macintosh|Mac OS X/.test(ua)) return 'Mac';
+      if (/Windows/.test(ua)) return 'Windows PC';
+      return null;
+    };
+
+    socket.emit('join-room', { roomId: room, deviceName: getDeviceName() });
     setJoined(true);
   };
 
@@ -238,8 +306,8 @@ export function Join() {
     <div className="w-full flex flex-col items-center animate-in fade-in zoom-in duration-500">
       {!joined ? (
         <Card>
-          <div className="mx-auto w-16 h-16 bg-[#10b981]/10 rounded-full flex items-center justify-center mb-4">
-            <Headphones size={32} className="text-[#10b981]" />
+          <div className="mx-auto w-16 h-16 bg-[var(--color-brand)]/10 rounded-full flex items-center justify-center mb-4">
+            <Headphones size={32} className="text-[var(--color-brand)]" />
           </div>
           <h2 className="text-2xl font-bold mb-2 text-center">Join a Session</h2>
           <p className="text-white/60 mb-6 text-sm text-center">
@@ -261,7 +329,7 @@ export function Join() {
                 value={roomIdInput}
                 onChange={(e) => setRoomIdInput(e.target.value.toUpperCase())}
                 maxLength={6}
-                className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-center text-xl tracking-widest font-mono text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-[#10b981]/50 focus:border-[#10b981]/50 transition-all uppercase"
+                className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-center text-xl tracking-widest font-mono text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-[var(--color-brand)]/50 focus:border-[var(--color-brand)]/50 transition-all uppercase"
                 required
               />
             </div>
@@ -277,29 +345,29 @@ export function Join() {
         <Card className="items-center">
           <audio ref={audioRef} autoPlay playsInline className="hidden" />
 
-          <div className="flex items-center gap-2 text-[#10b981] font-semibold mb-6 bg-[#10b981]/10 px-4 py-1.5 rounded-full border border-[#10b981]/20">
+          <div className="flex items-center gap-2 text-[var(--color-brand)] font-semibold mb-6 bg-[var(--color-brand)]/10 px-4 py-1.5 rounded-full border border-[var(--color-brand)]/20">
             <CheckCircle2 size={16} />
             Connected
           </div>
 
           {autoplayBlocked && (
-            <Button onClick={handlePlayAudio} className="mb-6 animate-pulse shadow-[0_0_20px_rgba(16,185,129,0.5)]">
+            <Button onClick={handlePlayAudio} className="mb-6 shadow-[0_0_20px_rgba(16,185,129,0.5)]">
               Tap to Play Audio
             </Button>
           )}
 
-          <div className="w-32 h-32 rounded-full border-4 border-[#10b981]/30 flex items-center justify-center mb-8 relative">
+          <div className="w-32 h-32 rounded-full border-4 border-[var(--color-brand)]/30 flex items-center justify-center mb-8 relative">
             {/* Visualizer animation rings */}
-            <div className="absolute inset-0 rounded-full animate-pulse-ring border-2 border-[#10b981]/50"></div>
-            <div className="absolute inset-0 rounded-full animate-pulse-ring border-2 border-[#10b981]/30" style={{ animationDelay: '0.5s' }}></div>
-            
-            <Headphones size={48} className="text-[#10b981]" />
+            <div className="absolute inset-0 rounded-full animate-pulse-ring border-2 border-[var(--color-brand)]/50"></div>
+            <div className="absolute inset-0 rounded-full animate-pulse-ring border-2 border-[var(--color-brand)]/30" style={{ animationDelay: '0.5s' }}></div>
+
+            <Headphones size={48} className="text-[var(--color-brand)]" />
           </div>
 
           <div className="w-full bg-black/40 border border-white/5 rounded-xl p-4 mb-6">
             <p className="text-[10px] text-white/50 mb-3 font-semibold tracking-wider uppercase">Volume</p>
             <div className="flex items-center gap-3 mb-2">
-              <button 
+              <button
                 onClick={() => setIsMuted(!isMuted)}
                 className="text-white/70 hover:text-white transition-colors"
               >
@@ -315,27 +383,42 @@ export function Join() {
                   setVolume(parseFloat(e.target.value));
                   if (isMuted) setIsMuted(false);
                 }}
-                className="flex-1 accent-[#10b981] bg-white/10 h-1.5 rounded-lg appearance-none cursor-pointer"
+                className="flex-1 accent-[var(--color-brand)] bg-white/10 h-1.5 rounded-lg appearance-none cursor-pointer"
               />
             </div>
-            
+
             <div className="w-full h-px bg-white/10 my-4"></div>
 
-            <p className="text-[10px] text-white/50 mb-3 font-semibold tracking-wider uppercase">Sync Calibration</p>
+            <div className="flex justify-between items-center text-[10px] text-white/50 mb-3 font-semibold tracking-wider uppercase">
+              <span>Auto-Sync Calibration</span>
+              <span className="text-[var(--color-brand)]">Target: {targetTotalDelay}ms</span>
+            </div>
+            
+            <div className="bg-black/30 rounded-lg p-3 mb-4 space-y-2 border border-white/5">
+              <div className="flex justify-between text-xs">
+                <span className="text-white/50">Network Latency</span>
+                <span className="font-mono text-white/80">{networkLatency}ms</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-white/50">Auto-Delay Added</span>
+                <span className="font-mono text-white/80">+{autoDelay}ms</span>
+              </div>
+            </div>
+
             <div className="flex items-center gap-3 mb-2">
-              <span className="text-white/70 text-xs font-mono w-10">{syncDelay}ms</span>
+              <span className="text-white/70 text-xs font-mono w-10 text-right">{syncDelay > 0 ? '+' : ''}{syncDelay}ms</span>
               <input
                 type="range"
-                min="0"
-                max="500"
+                min="-100"
+                max="100"
                 step="5"
                 value={syncDelay}
                 onChange={(e) => setSyncDelay(parseFloat(e.target.value))}
-                className="flex-1 accent-[#10b981] bg-white/10 h-1.5 rounded-lg appearance-none cursor-pointer"
+                className="flex-1 accent-[var(--color-brand)] bg-white/10 h-1.5 rounded-lg appearance-none cursor-pointer"
               />
             </div>
-            <p className="text-[10px] text-white/40 leading-relaxed mt-2">
-              If this phone plays slightly ahead of other devices, add a small delay to perfectly sync them.
+            <p className="text-[10px] text-white/40 leading-relaxed mt-2 text-center">
+              Fine-tune hardware latency (e.g. for Bluetooth audio)
             </p>
           </div>
 

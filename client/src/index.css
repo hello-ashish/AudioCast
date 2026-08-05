@@ -1,11 +1,11 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand: #10b981;
-  --color-brand-hover: #059669;
+  --color-brand: #1DB954;
+  --color-brand-hover: #1ed760;
   --color-background: #000000;
-  --color-surface: #111111;
-  --color-surface-hover: #1f1f1f;
+  --color-surface: #121212;
+  --color-surface-hover: #181818;
   --color-text: #ffffff;
   --color-text-muted: #a1a1aa;
   
@@ -27,22 +27,33 @@
 }
 
 @layer utilities {
+  .bg-noise {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.08'/%3E%3C/svg%3E");
+  }
+
   .glass {
-    background: rgba(255, 255, 255, 0.03);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.02);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.3);
+    border-left: 1px solid rgba(255, 255, 255, 0.03);
+    border-right: 1px solid rgba(255, 255, 255, 0.03);
   }
   
   .glass-panel {
-    background: linear-gradient(145deg, rgba(30, 30, 30, 0.6), rgba(15, 15, 15, 0.8));
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+    background: linear-gradient(160deg, rgba(24, 24, 24, 0.8) 0%, rgba(10, 10, 10, 0.95) 100%);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.8);
+    border-left: 1px solid rgba(255, 255, 255, 0.04);
+    border-right: 1px solid rgba(255, 255, 255, 0.04);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   }
 
   .text-glow {
-    text-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+    text-shadow: 0 0 16px rgba(29, 185, 84, 0.4);
   }
 }
 

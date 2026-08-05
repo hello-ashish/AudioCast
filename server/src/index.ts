@@ -30,16 +30,16 @@ io.on("connection", (socket) => {
   });
 
   // Client joins a room
-  socket.on("join-room", ({ roomId }) => {
+  socket.on("join-room", ({ roomId, deviceName }) => {
     const success = roomManager.joinRoom(roomId, socket.id);
     if (success) {
       socket.join(roomId);
-      console.log(`Client ${socket.id} joined room ${roomId}`);
+      console.log(`Client ${socket.id} joined room ${roomId} as ${deviceName || 'Unknown'}`);
       
       const room = roomManager.getRoom(roomId);
       if (room) {
         // Notify host that a client joined, so host can initiate WebRTC offer
-        io.to(room.hostSocketId).emit("client-joined", { clientId: socket.id });
+        io.to(room.hostSocketId).emit("client-joined", { clientId: socket.id, deviceName });
       }
     } else {
       socket.emit("room-error", { message: "Room not found or invalid" });
@@ -56,6 +56,25 @@ io.on("connection", (socket) => {
   socket.on("answer", ({ hostId, answer }) => {
     console.log(`Sending answer to host ${hostId}`);
     io.to(hostId).emit("answer", { clientId: socket.id, answer });
+  });
+
+  // SNTP-Style Network Calibration
+  socket.on("ping-host", ({ clientTime }) => {
+    socket.emit("pong-host", { clientTime, serverTime: Date.now() });
+  });
+
+  // Client reports its calculated network latency to the host
+  socket.on("report-latency", ({ roomId, latency }) => {
+    const room = roomManager.getRoom(roomId);
+    if (room) {
+      io.to(room.hostSocketId).emit("client-latency", { clientId: socket.id, latency });
+    }
+  });
+
+  // Host calculates max latency and broadcasts the new target latency to the room
+  socket.on("broadcast-target-latency", ({ roomId, targetLatency }) => {
+    // Broadcast to everyone in the room (except the host itself, though host doesn't listen for this anyway)
+    socket.to(roomId).emit("target-latency", { targetLatency });
   });
 
   // Relay ICE candidates

@@ -18,7 +18,12 @@ interface SocketProviderProps {
 }
 
 // Ensure the backend URL is pointing to the correct place
-const SOCKET_URL = import.meta.env.VITE_BACKEND_URL || `${window.location.protocol}//${window.location.hostname}:3001`;
+let SOCKET_URL = import.meta.env.VITE_BACKEND_URL || `${window.location.protocol}//${window.location.hostname}:3001`;
+
+// If we are testing on a phone (local network) but the .env file says localhost, override it!
+if (SOCKET_URL.includes('localhost') && window.location.hostname !== 'localhost') {
+  SOCKET_URL = `${window.location.protocol}//${window.location.hostname}:3001`;
+}
 
 export const SocketProvider: import('react').FC<SocketProviderProps> = ({ children }) => {
   const [socket, setSocket] = useState<Socket | null>(null);

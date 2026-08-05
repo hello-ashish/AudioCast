@@ -13,30 +13,30 @@ export function Host() {
   const [roomId, setRoomId] = useState<string>('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string>('');
-  const [clientCount, setClientCount] = useState(0);
+  
+  interface ConnectedClient {
+    id: string;
+    name: string;
+    joinedAt: Date;
+    latency: number;
+  }
+  const [connectedClients, setConnectedClients] = useState<ConnectedClient[]>([]);
+  const [targetLatency, setTargetLatency] = useState(0);
+  const clientCounterRef = useRef(1);
+  
   const [copied, setCopied] = useState(false);
-  const [hostDelay, setHostDelay] = useState(0);
 
   const streamRef = useRef<MediaStream | null>(null);
-  const originalStreamRef = useRef<MediaStream | null>(null);
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const delayNodeRef = useRef<DelayNode | null>(null);
-
-  // Update host delay dynamically
-  useEffect(() => {
-    if (delayNodeRef.current && audioContextRef.current) {
-      delayNodeRef.current.delayTime.setTargetAtTime(hostDelay / 1000, audioContextRef.current.currentTime, 0.05);
-    }
-  }, [hostDelay]);
 
   // Handle client joining and WebRTC signaling
   useEffect(() => {
     if (!socket) return;
 
-    socket.on('client-joined', async ({ clientId }) => {
-      console.log(`Client joined: ${clientId}`);
-      setClientCount((prev) => prev + 1);
+    socket.on('client-joined', async ({ clientId, deviceName }) => {
+      console.log(`Client joined: ${clientId} as ${deviceName}`);
+      const clientName = deviceName || `Listener ${clientCounterRef.current++}`;
+      setConnectedClients((prev) => [...prev, { id: clientId, name: clientName, joinedAt: new Date(), latency: 0 }]);
 
       if (!streamRef.current) return;
 
@@ -58,6 +58,15 @@ export function Host() {
 
       try {
         const offer = await peerConnection.createOffer();
+        
+        // Force high-fidelity stereo audio in WebRTC by modifying the SDP
+        if (offer.sdp) {
+          offer.sdp = offer.sdp.replace(
+            /useinbandfec=1/g,
+            'useinbandfec=1;stereo=1;sprop-stereo=1;maxaveragebitrate=510000'
+          );
+        }
+        
         await peerConnection.setLocalDescription(offer);
         socket.emit('offer', { clientId, offer });
       } catch (err) {
@@ -89,7 +98,7 @@ export function Host() {
 
     socket.on('client-disconnected', ({ clientId }) => {
       console.log(`Client disconnected: ${clientId}`);
-      setClientCount((prev) => Math.max(0, prev - 1));
+      setConnectedClients((prev) => prev.filter((c) => c.id !== clientId));
       const peerConnection = peerConnectionsRef.current.get(clientId);
       if (peerConnection) {
         peerConnection.close();
@@ -97,13 +106,34 @@ export function Host() {
       }
     });
 
+    socket.on('client-latency', ({ clientId, latency }) => {
+      setConnectedClients((prev) => 
+        prev.map(c => c.id === clientId ? { ...c, latency } : c)
+      );
+    });
+
     return () => {
       socket.off('client-joined');
       socket.off('answer');
       socket.off('ice-candidate');
       socket.off('client-disconnected');
+      socket.off('client-latency');
     };
   }, [socket]);
+
+  // Dynamically calculate and broadcast target latency
+  useEffect(() => {
+    if (connectedClients.length > 0 && isStreaming) {
+      const maxLatency = Math.max(...connectedClients.map(c => c.latency));
+      // Add 20ms safety buffer, minimum 50ms
+      const newTarget = Math.max(50, maxLatency + 20);
+      setTargetLatency(newTarget);
+      
+      if (socket && roomId) {
+        socket.emit("broadcast-target-latency", { roomId, targetLatency: newTarget });
+      }
+    }
+  }, [connectedClients, isStreaming, roomId, socket]);
 
   const startStreaming = async () => {
     setError('');
@@ -115,6 +145,8 @@ export function Host() {
           echoCancellation: false,
           noiseSuppression: false,
           autoGainControl: false,
+          channelCount: 2,
+          sampleRate: 48000,
         },
       });
 
@@ -126,24 +158,7 @@ export function Host() {
 
       // We only need the audio track
       const audioStream = new MediaStream([audioTracks[0]]);
-      originalStreamRef.current = stream; // Keep original stream to stop it later
-
-      // Route through Web Audio API to allow Host-side delay before sending to peers
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      const ctx = new AudioContextClass();
-      audioContextRef.current = ctx;
-
-      const source = ctx.createMediaStreamSource(audioStream);
-      const delayNode = ctx.createDelay(1.0); // max 1 second delay
-      delayNode.delayTime.value = hostDelay / 1000;
-      delayNodeRef.current = delayNode;
-
-      const dest = ctx.createMediaStreamDestination();
-      
-      source.connect(delayNode);
-      delayNode.connect(dest);
-
-      streamRef.current = dest.stream;
+      streamRef.current = audioStream;
       setIsStreaming(true);
 
       // Stop stream if user stops sharing via browser UI
@@ -167,18 +182,9 @@ export function Host() {
   };
 
   const stopStreaming = () => {
-    if (originalStreamRef.current) {
-      originalStreamRef.current.getTracks().forEach((track) => track.stop());
-      originalStreamRef.current = null;
-    }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
-    }
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
-      delayNodeRef.current = null;
     }
 
     peerConnectionsRef.current.forEach((pc) => pc.close());
@@ -186,7 +192,8 @@ export function Host() {
     
     setIsStreaming(false);
     setRoomId('');
-    setClientCount(0);
+    setConnectedClients([]);
+    clientCounterRef.current = 1; // Reset counter when stream stops
     
     // navigate away or just reset state
   };
@@ -222,8 +229,8 @@ export function Host() {
     <div className="w-full flex flex-col items-center animate-in fade-in zoom-in duration-500">
       {!isStreaming ? (
         <Card className="text-center">
-          <div className="mx-auto w-16 h-16 bg-[#10b981]/10 rounded-full flex items-center justify-center mb-4">
-            <Radio size={32} className="text-[#10b981]" />
+          <div className="mx-auto w-16 h-16 bg-[var(--color-brand)]/10 rounded-full flex items-center justify-center mb-4">
+            <Radio size={32} className="text-[var(--color-brand)]" />
           </div>
           <h2 className="text-2xl font-bold mb-2">Host a Session</h2>
           <p className="text-white/60 mb-6 text-sm">
@@ -245,9 +252,9 @@ export function Host() {
           </Button>
         </Card>
       ) : (
-        <Card className="items-center border-[#10b981]/30">
-          <div className="flex items-center gap-2 text-[#10b981] font-semibold mb-2 bg-[#10b981]/10 px-4 py-1.5 rounded-full border border-[#10b981]/20">
-            <div className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse" />
+        <Card className="items-center border-[var(--color-brand)]/30">
+          <div className="flex items-center gap-2 text-[var(--color-brand)] font-semibold mb-2 bg-[var(--color-brand)]/10 px-4 py-1.5 rounded-full border border-[var(--color-brand)]/20">
+            <div className="w-2 h-2 rounded-full bg-[var(--color-brand)] animate-pulse" />
             Live Streaming
           </div>
           
@@ -257,34 +264,42 @@ export function Host() {
             <QRCodeSVG value={shareUrl} size={180} fgColor="#000000" />
           </div>
 
-          <div className="w-full bg-black/40 border border-white/5 rounded-xl p-4 mb-6">
-            <p className="text-[10px] text-white/50 mb-3 font-semibold tracking-wider uppercase">Global Stream Delay</p>
-            <div className="flex items-center gap-3 mb-2">
-              <span className="text-white/70 text-xs font-mono w-10">{hostDelay}ms</span>
-              <input
-                type="range"
-                min="0"
-                max="500"
-                step="5"
-                value={hostDelay}
-                onChange={(e) => setHostDelay(parseFloat(e.target.value))}
-                className="flex-1 accent-[#10b981] bg-white/10 h-1.5 rounded-lg appearance-none cursor-pointer"
-              />
-            </div>
-            <p className="text-[10px] text-white/40 leading-relaxed mt-2">
-              Add a delay to the audio stream sent to ALL connected phones. Use this if the phones are playing ahead of a connected PA system.
-            </p>
-          </div>
-
           <div className="flex items-center gap-2 text-white/70 bg-white/5 px-4 py-2 rounded-lg mb-6 w-full justify-between border border-white/10">
             <div className="flex items-center gap-2">
               <Users size={18} />
-              <span>{clientCount} listener{clientCount !== 1 ? 's' : ''}</span>
+              <span>{connectedClients.length} listener{connectedClients.length !== 1 ? 's' : ''}</span>
             </div>
-            <div className="text-xs font-mono bg-black px-2 py-1 rounded text-white/50">
-              ID: {roomId}
+            <div className="text-xs font-mono bg-[var(--color-brand)]/20 text-[var(--color-brand)] px-2 py-1 rounded border border-[var(--color-brand)]/30">
+              Target Sync: {targetLatency}ms
             </div>
           </div>
+
+          {connectedClients.length > 0 && (
+            <div className="w-full bg-black/40 border border-white/5 rounded-xl p-4 mb-6 text-left">
+              <h3 className="text-[10px] text-white/50 mb-3 font-semibold tracking-wider uppercase flex items-center justify-between">
+                <span>Connected Listeners</span>
+                <span>{connectedClients.length}</span>
+              </h3>
+              <div className="flex flex-col gap-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
+                {connectedClients.map((client) => (
+                  <div key={client.id} className="flex items-center justify-between bg-white/5 rounded-lg px-3 py-2 border border-white/5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-brand)] animate-pulse"></div>
+                      <span className="text-sm font-medium text-white/90">{client.name}</span>
+                    </div>
+                    <div className="flex flex-col items-end">
+                      <span className="text-xs text-white/40">
+                        {client.joinedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                      </span>
+                      <span className="text-[10px] text-[var(--color-brand)] font-mono">
+                        {client.latency}ms ping
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="flex gap-3 w-full">
             <Button variant="secondary" className="flex-1 gap-2" onClick={handleCopyLink}>
