@@ -10,7 +10,7 @@ export function Card({ className, children, ...props }: React.HTMLAttributes<HTM
   return (
     <div
       className={cn(
-        'glass-panel rounded-2xl p-6 md:p-8 flex flex-col gap-6 w-full max-w-md mx-auto',
+        'glass-panel rounded-xl p-6 md:p-8 flex flex-col gap-6 w-full max-w-md mx-auto',
         className
       )}
       {...props}

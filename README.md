@@ -1,6 +1,6 @@
-# AudioSync
+# AudioCast
 
-AudioSync is a modern, full-stack web application that allows you to turn any mobile device (or another computer) into a wireless speaker for a browser tab.
+AudioCast is a modern, full-stack web application that allows you to turn any mobile device (or another computer) into a wireless speaker for a browser tab.
 
 ## Features
 
@@ -8,7 +8,7 @@ AudioSync is a modern, full-stack web application that allows you to turn any mo
 - **Low Latency**: Uses WebRTC for near real-time audio streaming.
 - **Easy Connection**: Connect easily using a generated Room ID or scan a QR Code.
 - **Multiple Listeners**: Broadcast the same audio to multiple devices seamlessly.
-- **Beautiful UI**: Modern, dark-mode design with fluid animations and premium glassmorphism effects.
+- **Simple UI**: A clean, light interface designed for quick setup and easy listening.
 
 ## Tech Stack
 

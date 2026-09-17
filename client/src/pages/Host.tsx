@@ -222,7 +222,7 @@ export function Host() {
   };
 
   if (!isConnected) {
-    return <div className="text-white/60">Connecting to server...</div>;
+    return <div className="text-[var(--color-text-muted)]">Connecting to server...</div>;
   }
 
   return (
@@ -233,7 +233,7 @@ export function Host() {
             <Radio size={32} className="text-[var(--color-brand)]" />
           </div>
           <h2 className="text-2xl font-bold mb-2">Host a Session</h2>
-          <p className="text-white/60 mb-6 text-sm">
+          <p className="text-[var(--color-text-muted)] mb-6 text-sm">
             Share a browser tab and select "Share tab audio" to start broadcasting.
           </p>
           
@@ -264,7 +264,7 @@ export function Host() {
             <QRCodeSVG value={shareUrl} size={180} fgColor="#000000" />
           </div>
 
-          <div className="flex items-center gap-2 text-white/70 bg-white/5 px-4 py-2 rounded-lg mb-6 w-full justify-between border border-white/10">
+          <div className="flex items-center gap-2 text-[var(--color-text-muted)] bg-emerald-50 px-4 py-2 rounded-lg mb-6 w-full justify-between border border-emerald-100">
             <div className="flex items-center gap-2">
               <Users size={18} />
               <span>{connectedClients.length} listener{connectedClients.length !== 1 ? 's' : ''}</span>
@@ -275,20 +275,20 @@ export function Host() {
           </div>
 
           {connectedClients.length > 0 && (
-            <div className="w-full bg-black/40 border border-white/5 rounded-xl p-4 mb-6 text-left">
-              <h3 className="text-[10px] text-white/50 mb-3 font-semibold tracking-wider uppercase flex items-center justify-between">
+            <div className="w-full bg-[#f7faf8] border border-[#e3ece5] rounded-xl p-4 mb-6 text-left">
+              <h3 className="text-[10px] text-[var(--color-text-muted)] mb-3 font-semibold tracking-wider uppercase flex items-center justify-between">
                 <span>Connected Listeners</span>
                 <span>{connectedClients.length}</span>
               </h3>
               <div className="flex flex-col gap-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
                 {connectedClients.map((client) => (
-                  <div key={client.id} className="flex items-center justify-between bg-white/5 rounded-lg px-3 py-2 border border-white/5">
+                  <div key={client.id} className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-[#e3ece5]">
                     <div className="flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-brand)] animate-pulse"></div>
-                      <span className="text-sm font-medium text-white/90">{client.name}</span>
+                      <span className="text-sm font-medium text-[var(--color-text)]">{client.name}</span>
                     </div>
                     <div className="flex flex-col items-end">
-                      <span className="text-xs text-white/40">
+                      <span className="text-xs text-[var(--color-text-muted)]">
                         {client.joinedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                       </span>
                       <span className="text-[10px] text-[var(--color-brand)] font-mono">

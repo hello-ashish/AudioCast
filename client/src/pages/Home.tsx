@@ -12,12 +12,12 @@ export function Home() {
         <Radio size={48} className="text-[var(--color-brand)] animate-pulse" />
       </div>
       
-      <h2 className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-4 text-glow text-white">
+      <h2 className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-4 text-[var(--color-text)]">
         Sync Your Audio. <br className="hidden sm:block" />
         <span className="text-[var(--color-brand)]">Wirelessly.</span>
       </h2>
       
-      <p className="text-lg text-white/60 max-w-md mx-auto mb-10">
+      <p className="text-lg text-[var(--color-text-muted)] max-w-md mx-auto mb-10">
         Turn your phone into a wireless speaker. Stream high-quality audio from your browser directly to your devices with ultra-low latency.
       </p>
 
@@ -26,9 +26,9 @@ export function Home() {
           <Radio size={20} />
           Start Streaming
         </Button>
-        <div className="text-white/40 text-sm font-medium w-full text-center relative flex items-center justify-center">
-          <span className="bg-[#000000] px-4 z-10">OR</span>
-          <div className="absolute w-full h-[1px] bg-white/10 top-1/2 left-0 -translate-y-1/2"></div>
+        <div className="text-[var(--color-text-muted)] text-sm font-medium w-full text-center relative flex items-center justify-center">
+          <span className="bg-white px-4 z-10">OR</span>
+          <div className="absolute w-full h-px bg-[#dce8df] top-1/2 left-0 -translate-y-1/2"></div>
         </div>
         <Button variant="secondary" size="lg" fullWidth onClick={() => navigate('/join')} className="gap-2">
           <Headphones size={20} />

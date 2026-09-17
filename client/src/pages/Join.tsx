@@ -299,7 +299,7 @@ export function Join() {
   };
 
   if (!isConnected) {
-    return <div className="text-white/60">Connecting to server...</div>;
+    return <div className="text-[var(--color-text-muted)]">Connecting to server...</div>;
   }
 
   return (
@@ -310,7 +310,7 @@ export function Join() {
             <Headphones size={32} className="text-[var(--color-brand)]" />
           </div>
           <h2 className="text-2xl font-bold mb-2 text-center">Join a Session</h2>
-          <p className="text-white/60 mb-6 text-sm text-center">
+          <p className="text-[var(--color-text-muted)] mb-6 text-sm text-center">
             Enter the Room ID displayed on the host's screen.
           </p>
 
@@ -329,7 +329,7 @@ export function Join() {
                 value={roomIdInput}
                 onChange={(e) => setRoomIdInput(e.target.value.toUpperCase())}
                 maxLength={6}
-                className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-center text-xl tracking-widest font-mono text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-[var(--color-brand)]/50 focus:border-[var(--color-brand)]/50 transition-all uppercase"
+                className="w-full bg-white border border-[#d5e2d8] rounded-xl px-4 py-3 text-center text-xl tracking-widest font-mono text-[var(--color-text)] placeholder:text-[#a2afa6] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand)]/50 focus:border-[var(--color-brand)]/50 transition-all uppercase"
                 required
               />
             </div>
@@ -364,12 +364,12 @@ export function Join() {
             <Headphones size={48} className="text-[var(--color-brand)]" />
           </div>
 
-          <div className="w-full bg-black/40 border border-white/5 rounded-xl p-4 mb-6">
-            <p className="text-[10px] text-white/50 mb-3 font-semibold tracking-wider uppercase">Volume</p>
+          <div className="w-full bg-[#f7faf8] border border-[#e3ece5] rounded-xl p-4 mb-6">
+            <p className="text-[10px] text-[var(--color-text-muted)] mb-3 font-semibold tracking-wider uppercase">Volume</p>
             <div className="flex items-center gap-3 mb-2">
               <button
                 onClick={() => setIsMuted(!isMuted)}
-                className="text-white/70 hover:text-white transition-colors"
+                className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
               >
                 {isMuted || volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
               </button>
@@ -383,30 +383,30 @@ export function Join() {
                   setVolume(parseFloat(e.target.value));
                   if (isMuted) setIsMuted(false);
                 }}
-                className="flex-1 accent-[var(--color-brand)] bg-white/10 h-1.5 rounded-lg appearance-none cursor-pointer"
+                className="flex-1 accent-[var(--color-brand)] bg-[#dce8df] h-1.5 rounded-lg appearance-none cursor-pointer"
               />
             </div>
 
-            <div className="w-full h-px bg-white/10 my-4"></div>
+            <div className="w-full h-px bg-[#dce8df] my-4"></div>
 
-            <div className="flex justify-between items-center text-[10px] text-white/50 mb-3 font-semibold tracking-wider uppercase">
+            <div className="flex justify-between items-center text-[10px] text-[var(--color-text-muted)] mb-3 font-semibold tracking-wider uppercase">
               <span>Auto-Sync Calibration</span>
               <span className="text-[var(--color-brand)]">Target: {targetTotalDelay}ms</span>
             </div>
             
-            <div className="bg-black/30 rounded-lg p-3 mb-4 space-y-2 border border-white/5">
+            <div className="bg-white rounded-lg p-3 mb-4 space-y-2 border border-[#e3ece5]">
               <div className="flex justify-between text-xs">
-                <span className="text-white/50">Network Latency</span>
-                <span className="font-mono text-white/80">{networkLatency}ms</span>
+                <span className="text-[var(--color-text-muted)]">Network Latency</span>
+                <span className="font-mono text-[var(--color-text)]">{networkLatency}ms</span>
               </div>
               <div className="flex justify-between text-xs">
-                <span className="text-white/50">Auto-Delay Added</span>
-                <span className="font-mono text-white/80">+{autoDelay}ms</span>
+                <span className="text-[var(--color-text-muted)]">Auto-Delay Added</span>
+                <span className="font-mono text-[var(--color-text)]">+{autoDelay}ms</span>
               </div>
             </div>
 
             <div className="flex items-center gap-3 mb-2">
-              <span className="text-white/70 text-xs font-mono w-10 text-right">{syncDelay > 0 ? '+' : ''}{syncDelay}ms</span>
+              <span className="text-[var(--color-text-muted)] text-xs font-mono w-10 text-right">{syncDelay > 0 ? '+' : ''}{syncDelay}ms</span>
               <input
                 type="range"
                 min="-100"
@@ -414,16 +414,16 @@ export function Join() {
                 step="5"
                 value={syncDelay}
                 onChange={(e) => setSyncDelay(parseFloat(e.target.value))}
-                className="flex-1 accent-[var(--color-brand)] bg-white/10 h-1.5 rounded-lg appearance-none cursor-pointer"
+                className="flex-1 accent-[var(--color-brand)] bg-[#dce8df] h-1.5 rounded-lg appearance-none cursor-pointer"
               />
             </div>
-            <p className="text-[10px] text-white/40 leading-relaxed mt-2 text-center">
+            <p className="text-[10px] text-[var(--color-text-muted)] leading-relaxed mt-2 text-center">
               Fine-tune hardware latency (e.g. for Bluetooth audio)
             </p>
           </div>
 
           <div className="text-center mb-6">
-            <p className="text-sm text-white/50">Room ID</p>
+            <p className="text-sm text-[var(--color-text-muted)]">Room ID</p>
             <p className="font-mono text-lg tracking-widest">{roomIdInput}</p>
           </div>
 
