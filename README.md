@@ -1,4 +1,4 @@
-# AudioSync
+# AudioCast
 
 AudioSync is a modern, full-stack web application that allows you to turn any mobile device (or another computer) into a wireless speaker for a browser tab.
 
